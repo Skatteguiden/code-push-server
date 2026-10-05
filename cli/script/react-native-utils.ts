@@ -210,10 +210,16 @@ async function getHermesCommand(gradleFile: string): Promise<string> {
       return false;
     }
   };
-  // Hermes is bundled with react-native since 0.69
+  // Hermes is bundled with react-native from 0.69 to 0.85
   const bundledHermesEngine = path.join(getReactNativePackagePath(), "sdks", "hermesc", getHermesOSBin(), getHermesOSExe());
   if (fileExists(bundledHermesEngine)) {
     return bundledHermesEngine;
+  }
+
+  // Since 0.86, react-native depends on the standalone hermes-compiler package instead
+  const hermesCompiler = path.join(getHermesCompilerPackagePath(), "hermesc", getHermesOSBin(), getHermesOSExe());
+  if (fileExists(hermesCompiler)) {
+    return hermesCompiler;
   }
 
   const gradleHermesCommand = await getHermesCommandFromGradle(gradleFile);
@@ -246,6 +252,21 @@ function getReactNativePackagePath(): string {
   }
 
   return path.join("node_modules", "react-native");
+}
+
+// Resolved from react-native's own location, since hermes-compiler is react-native's dependency and a
+// package manager may not hoist it to the project's top-level node_modules.
+function getHermesCompilerPackagePath(): string {
+  const result = childProcess.spawnSync("node", [
+    "--print",
+    `require.resolve('hermes-compiler/package.json', { paths: [${JSON.stringify(getReactNativePackagePath())}] })`,
+  ]);
+  const packagePath = path.dirname(result.stdout.toString());
+  if (result.status === 0 && directoryExistsSync(packagePath)) {
+    return packagePath;
+  }
+
+  return path.join("node_modules", "hermes-compiler");
 }
 
 export function directoryExistsSync(dirname: string): boolean {

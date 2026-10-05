@@ -2,7 +2,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.runReactNativeBundleCommand = exports.releaseReact = exports.release = exports.execute = exports.deploymentList = exports.createEmptyTempReleaseFolder = exports.confirm = exports.execSync = exports.spawn = exports.sdk = exports.log = void 0;
+exports.runReactNativeBundleCommand = exports.releaseReact = exports.release = exports.deploymentList = exports.createEmptyTempReleaseFolder = exports.confirm = exports.execSync = exports.spawn = exports.sdk = exports.log = void 0;
+exports.execute = execute;
 const AccountManager = require("./management-sdk");
 const childProcess = require("child_process");
 const debug_1 = require("./commands/debug");
@@ -424,7 +425,6 @@ function execute(command) {
         }
     });
 }
-exports.execute = execute;
 function getTotalActiveFromDeploymentMetrics(metrics) {
     let totalActive = 0;
     Object.keys(metrics).forEach((label) => {
@@ -496,6 +496,16 @@ function logout(command) {
         .then(() => {
         exports.sdk = null;
         deleteConnectionInfoCache();
+    })
+        .catch((error) => {
+        if (command.force) {
+            (0, exports.log)(chalk.redBright("\nThere was an issue logging out from the server. Forcing logout by deleting local connection info.\n"));
+            deleteConnectionInfoCache();
+            (0, exports.log)(chalk.yellowBright("Notice: Local session file was deleted, but the session ID might still exist on the server.\n"));
+        }
+        else {
+            throw error;
+        }
     });
 }
 function formatDate(unixOffset) {
@@ -1202,7 +1212,7 @@ function serializeConnectionInfo(accessKey, preserveAccessKeyOnLogout, customSer
     }
     const json = JSON.stringify(connectionInfo);
     fs.writeFileSync(configFilePath, json, { encoding: "utf8" });
-    (0, exports.log)(`\r\nSuccessfully logged-in. Your session file was written to ${chalk.cyan(configFilePath)}. You can run the ${chalk.cyan("code-push logout")} command at any time to delete this file and terminate your session.\r\n`);
+    (0, exports.log)(`\r\nSuccessfully logged-in. Your session file was written to ${chalk.cyan(configFilePath)}. You can run the ${chalk.cyan("code-push-standalone logout")} command at any time to delete this file and terminate your session.\r\n`);
 }
 function sessionList(command) {
     throwForInvalidOutputFormat(command.format);

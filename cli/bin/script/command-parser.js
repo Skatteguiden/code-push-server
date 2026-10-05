@@ -2,12 +2,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createCommand = exports.showHelp = void 0;
+exports.showHelp = showHelp;
+exports.createCommand = createCommand;
 const yargs = require("yargs");
 const cli = require("../script/types/cli");
 const chalk = require("chalk");
 const backslash = require("backslash");
 const parseDuration = require("parse-duration");
+const AccountManager = require("./management-sdk");
 const packageJson = require("../../package.json");
 const ROLLOUT_PERCENTAGE_REGEX = /^(100|[1-9][0-9]|[1-9])%?$/;
 const USAGE_PREFIX = "Usage: code-push-standalone";
@@ -31,7 +33,6 @@ function showHelp(showRootDescription) {
         wasHelpShown = true;
     }
 }
-exports.showHelp = showHelp;
 function accessKeyAdd(commandName, yargs) {
     isValidCommand = true;
     yargs
@@ -361,10 +362,10 @@ yargs
     isValidCommandCategory = true;
     isValidCommand = true;
     yargs
-        .usage(USAGE_PREFIX + " login [options]")
-        .demand(/*count*/ 0, /*max*/ 1) //set 'max' to one to allow usage of serverUrl undocument parameter for testing
-        .example("login", "Logs in to the CodePush server")
-        .example("login --accessKey mykey", 'Logs in on behalf of the user who owns and created the access key "mykey"')
+        .usage(USAGE_PREFIX + " login <serverUrl> [options]")
+        .demand(/*count*/ 0, /*max*/ 1) //set 'max' to one to allow usage of serverUrl
+        .example("login", `Logs in to the CodePush server on default serverUrl ${AccountManager.SERVER_URL}`)
+        .example("login https://codepush.example.com  --accessKey mykey", 'Logs in on behalf of the user who owns and created the access key "mykey", on the server running at https://codepush.example.com')
         .option("accessKey", {
         alias: "key",
         default: null,
@@ -381,6 +382,13 @@ yargs
     yargs
         .usage(USAGE_PREFIX + " logout")
         .demand(/*count*/ 0, /*max*/ 0)
+        .option("force", {
+        alias: "f",
+        default: null,
+        demand: false,
+        description: "Force logout, even if server is unreachable.",
+        type: "boolean",
+    })
         .example("logout", "Logs out and ends your current session");
     addCommonConfiguration(yargs);
 })
@@ -961,6 +969,8 @@ function createCommand() {
                 break;
             case "logout":
                 cmd = { type: cli.CommandType.logout };
+                const logoutCommand = cmd;
+                logoutCommand.force = argv["force"];
                 break;
             case "patch":
                 if (arg1 && arg2) {
@@ -1075,7 +1085,6 @@ function createCommand() {
         return cmd;
     }
 }
-exports.createCommand = createCommand;
 function isValidRollout(args) {
     const rollout = args["rollout"];
     if (rollout && !ROLLOUT_PERCENTAGE_REGEX.test(rollout)) {
